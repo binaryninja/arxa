@@ -8,6 +8,7 @@ arxa/cli.py
 arxa/config.py
 arxa/llm_backends.py
 arxa/pdf_utils.py
+arxa/prompts.py
 arxa/repo_utils.py
 arxa/research_review.py
 arxa/server.py

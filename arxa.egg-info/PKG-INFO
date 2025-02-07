@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: arxa
-Version: 0.1.9
+Version: 0.1.10
 Summary: A research automation tool for fetching, summarizing, and enhancing arXiv papers.
 Home-page: https://github.com/binaryninja/arxa
 Author: Jeremy Richards

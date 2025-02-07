@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# arxa/arxa/cli.py
+
 import os
 import sys
 import argparse
@@ -12,11 +14,13 @@ try:
 except ImportError:
     RichHandler = None
 
+from . import __version__  # Import version from __init__.py
 from .config import load_config
 from .arxiv_utils import search_arxiv_by_id_list
 from .pdf_utils import download_pdf_from_arxiv, extract_text_from_pdf, sanitize_filename
 from .research_review import generate_research_review
 from .repo_utils import extract_github_url, clone_repo
+from .prompts import PROMPT_PREFIX, PROMPT_SUFFIX  # For printing the template
 
 def configure_logging(quiet: bool) -> None:
     """
@@ -69,6 +73,25 @@ def main():
 
     args = parser.parse_args()
 
+    # Print startup information
+    logger.info("Starting arxa version %s", __version__)
+    logger.info("Arguments: provider=%s, model=%s", args.provider, args.model)
+    if args.config:
+        logger.info("Config file provided: %s", args.config)
+        try:
+            config = load_config(args.config)
+            logger.info("Configuration loaded successfully.")
+        except Exception as e:
+            logger.error("Error loading config: %s", str(e))
+            sys.exit(1)
+    else:
+        logger.info("No configuration file specified; using defaults.")
+        config = {}
+
+    # (Optional) Print out the prompt template (first few lines only to avoid spamming the console).
+    template_preview = (PROMPT_PREFIX + "\n" + PROMPT_SUFFIX).split("\n")[:10]
+    logger.info("Using prompt template (first 10 lines):\n%s", "\n".join(template_preview))
+
     # If the server flag is present, start the FastAPI server.
     if args.server:
         try:
@@ -77,25 +100,12 @@ def main():
             logger.error("uvicorn must be installed to run the server. Install it with pip install uvicorn")
             sys.exit(1)
         logger.info("Starting FastAPI server on port 8000 with provider hard-coded to openai/o3-mini ...")
-        # When running in server mode, we hard-code the backend provider/model inside the server.
         uvicorn.run("arxa.server:app", host="0.0.0.0", port=8000, reload=True)
         return
 
     # For non-server mode, ensure that either -aid or -pdf is provided.
     if not (args.aid or args.pdf):
         parser.error("You must specify either -aid or -pdf when not running in --server mode.")
-
-    # Configure logging.
-    configure_logging(args.quiet)
-
-    # Load configuration file if provided.
-    config = {}
-    if args.config:
-        try:
-            config = load_config(args.config)
-        except Exception as e:
-            logger.error("Error loading config: %s", str(e))
-            sys.exit(1)
 
     papers_dir = config.get("papers_directory", tempfile.gettempdir())
     output_dir = config.get("output_directory", os.getcwd())
@@ -144,7 +154,6 @@ def main():
         logger.error("Failed to extract text from PDF: %s", str(e))
         sys.exit(1)
 
-    # If using the remote server provider, send an HTTP POST to the server.
     if args.provider.lower() == "arxa.richards.ai:8000":
         try:
             import requests
@@ -167,7 +176,6 @@ def main():
             sys.exit(1)
         review = response.json()["review"]
     else:
-        # Local mode: initialize the appropriate LLM client.
         provider_normalized = args.provider.lower()
         if provider_normalized == "anthropic":
             try:
