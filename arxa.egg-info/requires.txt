@@ -1,0 +1,13 @@
+PyPDF2
+arxiv
+anthropic
+ollama
+openai
+requests
+tenacity
+tqdm
+aiohttp
+pyyaml
+tiktoken
+httpx<1,>=0.23.0
+rich

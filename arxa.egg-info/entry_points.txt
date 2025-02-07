@@ -1,0 +1,2 @@
+[console_scripts]
+arxa = arxa.cli:main
