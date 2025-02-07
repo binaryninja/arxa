@@ -34,8 +34,7 @@ def generate_research_review(
 ) -> str:
     """
     Generate a research review summary based on PDF text and paper info.
-    If the provider is "certit.ai:8000", it is mapped to "openai" to use
-    the same backend logic.
+    The provider value is used as-is.
     """
     prompt_prefix = """
 You are a research assistant tasked with generating comprehensive research notes...
@@ -128,10 +127,7 @@ Use the following template:
 
     prompt = f"{prompt_prefix}\n{pdf_text_truncated}\n{prompt_suffix}"
 
-    # Normalize provider if it is certit.ai:8000.
-    if provider.lower() == "certit.ai:8000":
-        provider = "openai"
-
+    # Use the provider as passed in.
     if provider == "anthropic":
         if not llm_client:
             raise ValueError("Anthropic client required when provider is 'anthropic'")

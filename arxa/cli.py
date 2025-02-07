@@ -39,7 +39,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="arxa: Generate research reviews from arXiv papers or PDFs, or start the FastAPI server."
     )
-    # New flag to start the server.
+    # Flag to start the server.
     parser.add_argument("--server", action="store_true",
                         help="Start the FastAPI server instead of processing a paper/PDF.")
 
@@ -52,14 +52,14 @@ def main():
     parser.add_argument(
            "-p",
            "--provider",
-           default="certit.ai:8000",  # now default to the certit.ai server
-           choices=["certit.ai:8000", "anthropic", "openai", "ollama"],
-           help="LLM provider to use (default: certit.ai:8000)"
+           default="arxa.richards.ai:8000",  # default provider uses the remote server
+           choices=["arxa.richards.ai:8000", "anthropic", "openai", "ollama"],
+           help="LLM provider to use (default: arxa.richards.ai:8000)"
        )
     parser.add_argument(
         "-m",
         "--model",
-        help="Model identifier/version (e.g., 'o3-mini') - required when using a provider",
+        help="Model identifier/version (e.g., 'o3-mini'). When using the remote server, this will be ignored.",
         default="o3-mini"
     )
     parser.add_argument("-g", "--github", action="store_true",
@@ -69,22 +69,21 @@ def main():
 
     args = parser.parse_args()
 
-    # If the server flag is present, start the FastAPI server and exit.
+    # If the server flag is present, start the FastAPI server.
     if args.server:
         try:
             import uvicorn
         except ImportError:
             logger.error("uvicorn must be installed to run the server. Install it with pip install uvicorn")
             sys.exit(1)
-        logger.info("Starting FastAPI server...")
+        logger.info("Starting FastAPI server on port 8000 with provider hard-coded to openai/o3-mini ...")
+        # When running in server mode, we hard-code the backend provider/model inside the server.
         uvicorn.run("arxa.server:app", host="0.0.0.0", port=8000, reload=True)
         return
 
     # For non-server mode, ensure that either -aid or -pdf is provided.
     if not (args.aid or args.pdf):
         parser.error("You must specify either -aid or -pdf when not running in --server mode.")
-
-    # For non-server m
 
     # Configure logging.
     configure_logging(args.quiet)
@@ -100,37 +99,6 @@ def main():
 
     papers_dir = config.get("papers_directory", tempfile.gettempdir())
     output_dir = config.get("output_directory", os.getcwd())
-
-    # --- Begin client initialization ---
-    # Normalize the provider: if certit.ai:8000 is passed, treat it as openai.
-    provider_normalized = args.provider.lower()
-    if provider_normalized == "anthropic":
-        try:
-            from anthropic import Anthropic
-        except ImportError:
-            logger.error("Anthropic client library not installed.")
-            sys.exit(1)
-        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not anthropic_api_key:
-            logger.error("ANTHROPIC_API_KEY environment variable not set.")
-            sys.exit(1)
-        llm_client = Anthropic(api_key=anthropic_api_key)
-    elif provider_normalized in ["openai", "certit.ai:8000"]:
-        import openai
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not openai_api_key:
-            logger.error("OPENAI_API_KEY environment variable not set.")
-            sys.exit(1)
-        openai.api_key = openai_api_key
-        llm_client = openai
-        # Normalize the provider for downstream logic.
-        args.provider = "openai"
-    elif provider_normalized == "ollama":
-        llm_client = None
-    else:
-        logger.error("Unsupported provider: %s", args.provider)
-        sys.exit(1)
-    # --- End client initialization ---
 
     pdf_path = None
     paper_info = {}
@@ -176,17 +144,66 @@ def main():
         logger.error("Failed to extract text from PDF: %s", str(e))
         sys.exit(1)
 
-    try:
-        review = generate_research_review(
-            pdf_text,
-            paper_info,
-            provider=args.provider,
-            model=args.model,
-            llm_client=llm_client
-        )
-    except Exception as e:
-        logger.error("Error generating research review: %s", str(e))
-        sys.exit(1)
+    # If using the remote server provider, send an HTTP POST to the server.
+    if args.provider.lower() == "arxa.richards.ai:8000":
+        try:
+            import requests
+        except ImportError:
+            logger.error("The requests library is required for remote calls. Install it with pip install requests")
+            sys.exit(1)
+        endpoint = "http://arxa.richards.ai:8000/generate-review"
+        payload = {
+            "pdf_text": pdf_text,
+            "paper_info": paper_info,
+            "provider": args.provider,  # server will override to openai/o3-mini
+            "model": args.model
+        }
+        logger.info("Sending review generation request to remote server at %s", endpoint)
+        response = requests.post(endpoint, json=payload)
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            logger.error("Remote API call failed: %s", str(e))
+            sys.exit(1)
+        review = response.json()["review"]
+    else:
+        # Local mode: initialize the appropriate LLM client.
+        provider_normalized = args.provider.lower()
+        if provider_normalized == "anthropic":
+            try:
+                from anthropic import Anthropic
+            except ImportError:
+                logger.error("Anthropic client library not installed.")
+                sys.exit(1)
+            anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not anthropic_api_key:
+                logger.error("ANTHROPIC_API_KEY environment variable not set.")
+                sys.exit(1)
+            llm_client = Anthropic(api_key=anthropic_api_key)
+        elif provider_normalized == "openai":
+            import openai
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                logger.error("OPENAI_API_KEY environment variable not set.")
+                sys.exit(1)
+            openai.api_key = openai_api_key
+            llm_client = openai
+        elif provider_normalized == "ollama":
+            llm_client = None
+        else:
+            logger.error("Unsupported provider: %s", args.provider)
+            sys.exit(1)
+        try:
+            review = generate_research_review(
+                pdf_text,
+                paper_info,
+                provider=args.provider,
+                model=args.model,
+                llm_client=llm_client
+            )
+        except Exception as e:
+            logger.error("Error generating research review: %s", str(e))
+            sys.exit(1)
 
     try:
         if args.output:

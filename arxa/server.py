@@ -2,7 +2,7 @@
 """
 A FastAPI server for generating research reviews.
 This server accepts a POST request to generate a research review using an LLM backend.
-If the provider "certit.ai:8000" is passed in the request, it is normalized to "openai".
+All requests are forced to use OpenAI with the o3-mini model.
 """
 import os
 import logging
@@ -64,14 +64,13 @@ def get_llm_client(provider: str):
 async def generate_review_endpoint(request: ReviewRequest):
     """
     Generate a research review summary.
-    If the provider is "certit.ai:8000", it is normalized to "openai".
+    All requests are forced to use OpenAI with the o3-mini model.
     """
     try:
-        logger.info("Generating review using provider %s", request.provider)
-        if request.provider.lower() == "certit.ai:8000":
-            request.provider = "openai"
-            request.model = "o3-mini"
-            logger.info("Request provider changed to openai")
+        logger.info("Received review generation request. Overriding provider/model to openai/o3-mini.")
+        # Force remote requests to always use OpenAI with the o3-mini model.
+        request.provider = "openai"
+        request.model = "o3-mini"
 
         client = get_llm_client(request.provider)
         review = generate_research_review(
