@@ -7,6 +7,7 @@ import argparse
 import tempfile
 import logging
 import subprocess
+import json
 
 # Import rich’s logging handler for better log formatting.
 try:
@@ -57,7 +58,7 @@ def main():
            "-p",
            "--provider",
            default="arxa.richards.ai:8000",  # default provider uses the remote server
-           choices=["arxa.richards.ai:8000", "anthropic", "openai", "ollama"],
+           choices=["arxa.richards.ai:8000", "anthropic", "openai", "ollama", "deepseek", "fireworks"],
            help="LLM provider to use (default: arxa.richards.ai:8000)"
        )
     parser.add_argument(
@@ -72,6 +73,8 @@ def main():
     parser.add_argument("--quiet", action="store_true", help="Disable rich output formatting")
 
     args = parser.parse_args()
+
+    configure_logging(args.quiet)
 
     # Print startup information
     logger.info("Starting arxa version %s", __version__)
@@ -197,6 +200,18 @@ def main():
             openai.api_key = openai_api_key
             llm_client = openai
         elif provider_normalized == "ollama":
+            llm_client = None
+        elif provider_normalized == "deepseek":
+            import openai
+            deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not deepseek_api_key:
+                logger.error("DEEPSEEK_API_KEY environment variable not set.")
+                sys.exit(1)
+            openai.api_key = deepseek_api_key
+            openai.api_base = "https://api.deepseek.com"
+            llm_client = openai
+        elif provider_normalized == "fireworks":
+            # For Fireworks, we do not need a client instance.
             llm_client = None
         else:
             logger.error("Unsupported provider: %s", args.provider)

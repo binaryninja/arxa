@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+import json
 
 from .research_review import generate_research_review
 from . import __version__
@@ -122,7 +123,8 @@ class ReviewResponse(BaseModel):
     review: str
 
 def get_llm_client(provider: str):
-    if provider.lower() == "anthropic":
+    provider = provider.lower()
+    if provider == "anthropic":
         try:
             from anthropic import Anthropic
         except ImportError:
@@ -131,7 +133,7 @@ def get_llm_client(provider: str):
         if not api_key:
             raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY environment variable not set.")
         return Anthropic(api_key=api_key)
-    elif provider.lower() == "openai":
+    elif provider == "openai":
         try:
             import openai
         except ImportError:
@@ -141,7 +143,23 @@ def get_llm_client(provider: str):
             raise HTTPException(status_code=500, detail="OPENAI_API_KEY environment variable not set.")
         openai.api_key = api_key
         return openai
-    elif provider.lower() == "ollama":
+    elif provider == "deepseek":
+        try:
+            import openai
+        except ImportError:
+            raise HTTPException(status_code=500, detail="OpenAI client library not installed (required for DeepSeek).")
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="DEEPSEEK_API_KEY environment variable not set.")
+        openai.api_key = api_key
+        openai.api_base = "https://api.deepseek.com"
+        return openai
+    elif provider == "fireworks":
+        # For Fireworks, no client instance is needed. We simply check that the API key is set.
+        if not os.getenv("FIREWORKS_API_KEY"):
+            raise HTTPException(status_code=500, detail="FIREWORKS_API_KEY environment variable not set.")
+        return None
+    elif provider == "ollama":
         return None
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported provider {provider}.")
@@ -162,6 +180,7 @@ async def startup_event():
 async def generate_review_endpoint(request: ReviewRequest):
     try:
         logger.info("Received review generation request. Overriding provider/model to openai/o3-mini.")
+        # For the server we force using openai/o3-mini
         request.provider = "openai"
         request.model = "o3-mini"
 

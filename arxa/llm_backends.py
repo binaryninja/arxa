@@ -7,6 +7,7 @@ import openai
 import traceback
 from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_attempt
 from typing import Optional
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +40,7 @@ def openai_generate(client: openai.OpenAI, prompt: str, model: str = "o3-mini") 
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ],
             max_completion_tokens=8192
         )
@@ -57,6 +55,82 @@ def openai_generate(client: openai.OpenAI, prompt: str, model: str = "o3-mini") 
         else:
             logger.error("An unexpected error occurred in openai_generate. Exception details: %s", e, exc_info=True)
             raise
+
+class DeepseekAPIError(Exception):
+    pass
+
+@retry(
+    retry=retry_if_exception_type(DeepseekAPIError),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    stop=stop_after_attempt(5),
+)
+def deepseek_generate(client: openai.OpenAI, prompt: str, model: str = "deepseek-chat") -> str:
+    """
+    Send a prompt to DeepSeek’s API by using the OpenAI client with a custom base_url.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_completion_tokens=8192,
+            stream=False
+        )
+        logger.debug("DeepSeek response: %s", response)
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.debug("Exception in deepseek_generate:\n%s", traceback.format_exc())
+        logger.error("deepseek_generate encountered an exception: %s", str(e))
+        status_code = getattr(e, "status_code", None)
+        if status_code and status_code in [429, 500]:
+            raise DeepseekAPIError(f"DeepSeek API rate limit or server error: {e}")
+        else:
+            raise
+
+class FireworksAPIError(Exception):
+    pass
+
+@retry(
+    retry=retry_if_exception_type(FireworksAPIError),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    stop=stop_after_attempt(5),
+)
+def fireworks_generate(prompt: str, model: str = "accounts/fireworks/models/deepseek-v3") -> str:
+    """
+    Send a prompt to the Fireworks API.
+    """
+    url = "https://api.fireworks.ai/inference/v1/chat/completions"
+    payload = {
+        "model": model,
+        "max_tokens": 65536,
+        "top_p": 1,
+        "top_k": 40,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+        "temperature": 0.6,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    api_key = os.getenv("FIREWORKS_API_KEY")
+    if not api_key:
+        raise FireworksAPIError("FIREWORKS_API_KEY environment variable not set.")
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        data = response.json()
+        logger.debug("Fireworks response: %s", data)
+        # Assumes the API returns a structure with choices->[{'message': {'content': ...}}]
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        logger.error("Error in fireworks_generate: %s", str(e))
+        raise FireworksAPIError(str(e))
 
 class AnthropicAPIError(Exception):
     pass
