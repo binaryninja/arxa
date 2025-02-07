@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="arxa",  # PyPI Package Name
-    version="0.1.4",
+    version="0.1.5",
     author="Jeremy Richards",
     author_email="jeremy@richards.ai",
     description="A research automation tool for fetching, summarizing, and enhancing arXiv papers.",

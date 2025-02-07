@@ -37,43 +37,59 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="arxa: Generate research reviews from arXiv papers or local PDFs."
+        description="arxa: Generate research reviews from arXiv papers or PDFs, or start the FastAPI server."
     )
+    # New flag to start the server.
+    parser.add_argument("--server", action="store_true",
+                        help="Start the FastAPI server instead of processing a paper/PDF.")
+
     # Add mutually exclusive arguments for arXiv id or local PDF.
-    group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group()
     group.add_argument("-aid", help="arXiv ID of the paper (e.g. 1234.5678)")
     group.add_argument("-pdf", help="Path to a local PDF file")
 
-    parser.add_argument("-o", "--output", required=True, help="Output markdown file for the review")
+    parser.add_argument("-o", "--output", help="Output markdown file for the review (ignored when --server is used)")
     parser.add_argument(
-        "-p",
-        "--provider",
-        default="anthropic",
-        choices=["anthropic", "openai", "ollama"],
-        help="LLM provider to use (default: anthropic)"
-    )
-    # -m is now required when using a provider.
+           "-p",
+           "--provider",
+           default="certit.ai:8000",  # now default to the certit.ai server
+           choices=["certit.ai:8000", "anthropic", "openai", "ollama"],
+           help="LLM provider to use (default: certit.ai:8000)"
+       )
     parser.add_argument(
         "-m",
         "--model",
-        required=True,
-        help="Model identifier/version (e.g., 'o3-mini') - required when using -p"
+        help="Model identifier/version (e.g., 'o3-mini') - required when using a provider",
+        default="o3-mini"
     )
-    parser.add_argument("-g", "--github", action="store_true", help="Enable GitHub cloning if a GitHub URL is found in the review")
+    parser.add_argument("-g", "--github", action="store_true",
+                        help="Enable GitHub cloning if a GitHub URL is found in the review")
     parser.add_argument("-c", "--config", help="Path to configuration YAML file")
-    # New flag to disable rich formatting
     parser.add_argument("--quiet", action="store_true", help="Disable rich output formatting")
 
     args = parser.parse_args()
 
-    # After args are parsed, configure logging.
+    # If the server flag is present, start the FastAPI server and exit.
+    if args.server:
+        try:
+            import uvicorn
+        except ImportError:
+            logger.error("uvicorn must be installed to run the server. Install it with pip install uvicorn")
+            sys.exit(1)
+        logger.info("Starting FastAPI server...")
+        uvicorn.run("arxa.server:app", host="0.0.0.0", port=8000, reload=True)
+        return
+
+    # For non-server mode, ensure that either -aid or -pdf is provided.
+    if not (args.aid or args.pdf):
+        parser.error("You must specify either -aid or -pdf when not running in --server mode.")
+
+    # For non-server m
+
+    # Configure logging.
     configure_logging(args.quiet)
 
-    # (Optional additional safety-check: if -p is specified without -m, exit.)
-    if not args.model:
-        logger.error("Error: The model identifier (-m) is required when using the provider (-p) argument.")
-        sys.exit(1)
-
+    # Load configuration file if provided.
     config = {}
     if args.config:
         try:
@@ -85,15 +101,21 @@ def main():
     papers_dir = config.get("papers_directory", tempfile.gettempdir())
     output_dir = config.get("output_directory", os.getcwd())
 
-    llm_client = None
-    if args.provider.lower() == "anthropic":
-        from anthropic import Anthropic
+    # --- Begin client initialization ---
+    # Normalize the provider: if certit.ai:8000 is passed, treat it as openai.
+    provider_normalized = args.provider.lower()
+    if provider_normalized == "anthropic":
+        try:
+            from anthropic import Anthropic
+        except ImportError:
+            logger.error("Anthropic client library not installed.")
+            sys.exit(1)
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         if not anthropic_api_key:
             logger.error("ANTHROPIC_API_KEY environment variable not set.")
             sys.exit(1)
         llm_client = Anthropic(api_key=anthropic_api_key)
-    elif args.provider.lower() == "openai":
+    elif provider_normalized in ["openai", "certit.ai:8000"]:
         import openai
         openai_api_key = os.getenv("OPENAI_API_KEY")
         if not openai_api_key:
@@ -101,6 +123,14 @@ def main():
             sys.exit(1)
         openai.api_key = openai_api_key
         llm_client = openai
+        # Normalize the provider for downstream logic.
+        args.provider = "openai"
+    elif provider_normalized == "ollama":
+        llm_client = None
+    else:
+        logger.error("Unsupported provider: %s", args.provider)
+        sys.exit(1)
+    # --- End client initialization ---
 
     pdf_path = None
     paper_info = {}
@@ -159,14 +189,16 @@ def main():
         sys.exit(1)
 
     try:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(review)
-        logger.info("Review written to %s", args.output)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(review)
+            logger.info("Review written to %s", args.output)
+        else:
+            logger.info("Generated review:\n%s", review)
     except Exception as e:
         logger.error("Failed to write review to file: %s", str(e))
         sys.exit(1)
 
-    # If not in quiet mode, render the review to the console using rich's Console.
     if not args.quiet:
         try:
             from rich.console import Console
@@ -175,7 +207,6 @@ def main():
             console.print(review)
             console.rule()
         except ImportError:
-            # Fallback to a plain print if rich isn't installed.
             print(review)
 
     if args.github:

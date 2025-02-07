@@ -1,7 +1,14 @@
+#!/usr/bin/env python3
+"""
+Generate a research review summary from PDF text using an LLM.
+This version truncates long PDF content and builds a prompt to be sent
+to a chosen LLM backend (anthropic, openai, or ollama).
+"""
 import re
 import json
 from typing import Dict, Any
 import tiktoken  # used for token counting
+import requests
 
 from .llm_backends import anthropic_generate, ollama_generate, openai_generate
 
@@ -26,10 +33,10 @@ def generate_research_review(
     llm_client = None
 ) -> str:
     """
-    Generate a 'research review' summary from PDF text using an LLM.
-    This version truncates the PDF content to ensure the resulting prompt stays below 180,000 tokens.
+    Generate a research review summary based on PDF text and paper info.
+    If the provider is "certit.ai:8000", it is mapped to "openai" to use
+    the same backend logic.
     """
-    # Define prompt parts that remain static.
     prompt_prefix = """
 You are a research assistant tasked with generating comprehensive research notes...
 <pdf_content>
@@ -51,7 +58,6 @@ Use the following template:
 - **ArXiv Link:**
 - **Date of Submission:**
 - **Field of Study:**
-- **Keywords:**
 - **Keywords:**
 - **Code Repository:**
 
@@ -110,7 +116,6 @@ Use the following template:
 - **Interesting Insights:**
 - **Personal Thoughts & Comments:**""".strip()
 
-
     enc = tiktoken.get_encoding("cl100k_base")
     prefix_tokens = len(enc.encode(prompt_prefix))
     suffix_tokens = len(enc.encode(prompt_suffix))
@@ -123,18 +128,22 @@ Use the following template:
 
     prompt = f"{prompt_prefix}\n{pdf_text_truncated}\n{prompt_suffix}"
 
+    # Normalize provider if it is certit.ai:8000.
+    if provider.lower() == "certit.ai:8000":
+        provider = "openai"
+
     if provider == "anthropic":
         if not llm_client:
             raise ValueError("Anthropic client required when provider is 'anthropic'")
-        response = anthropic_generate(llm_client, prompt, model=model)
+        review = anthropic_generate(llm_client, prompt, model=model)
     elif provider == "openai":
         if not llm_client:
             raise ValueError("OpenAI client required when provider is 'openai'")
-        response = openai_generate(llm_client, prompt, model=model)
+        review = openai_generate(llm_client, prompt, model=model)
     else:
-        response = ollama_generate(prompt, model=model)
+        review = ollama_generate(prompt, model=model)
 
-    match = re.search(r"<research_notes>(.*?)</research_notes>", response, re.DOTALL)
+    match = re.search(r"<research_notes>(.*?)</research_notes>", review, re.DOTALL)
     if match:
         return match.group(1).strip()
-    return "Error: Research notes not found in the response."
+    return review.strip()
