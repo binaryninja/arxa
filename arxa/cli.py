@@ -52,7 +52,7 @@ def main():
         choices=["anthropic", "openai", "ollama"],
         help="LLM provider to use (default: anthropic)"
     )
-    # Update: -m is now required when -p is provided.
+    # -m is now required when using a provider.
     parser.add_argument(
         "-m",
         "--model",
@@ -66,7 +66,7 @@ def main():
 
     args = parser.parse_args()
 
-    # After args are parsed, configure logging
+    # After args are parsed, configure logging.
     configure_logging(args.quiet)
 
     # (Optional additional safety-check: if -p is specified without -m, exit.)
@@ -165,6 +165,18 @@ def main():
     except Exception as e:
         logger.error("Failed to write review to file: %s", str(e))
         sys.exit(1)
+
+    # If not in quiet mode, render the review to the console using rich's Console.
+    if not args.quiet:
+        try:
+            from rich.console import Console
+            console = Console()
+            console.rule("[bold green]Generated Research Review")
+            console.print(review)
+            console.rule()
+        except ImportError:
+            # Fallback to a plain print if rich isn't installed.
+            print(review)
 
     if args.github:
         github_url = None
