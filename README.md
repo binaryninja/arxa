@@ -58,7 +58,7 @@ arxa/
   - **Review Generation Mode**: Accepts an arXiv ID (`-aid`) or local PDF file (`-pdf`) to generate a research review.
 - Other options include:
   - `-o` or `--output`: Specify output file for the generated review.
-  - `-p` or `--provider`: Choose the LLM provider (default: "arxa.richards.ai:8000" for community server, or use "anthropic", "openai"").
+  - `-p` or `--provider`: Choose the LLM provider (default: api.arxa.ai" for community server, or use "anthropic", "openai"").
   - `-m` or `--model`: Specify model identifier/version, such as "o3-mini".
   - `-g` or `--github`: Enable GitHub cloning if a GitHub URL is detected in the generated review.
   - `-c` or `--config`: Path to a YAML configuration file.
@@ -144,7 +144,7 @@ When running the package via the command line (using the `arxa` CLI), you have v
 
 - -p, --provider
   Choose the LLM provider. Options are:
-  • arxa.richards.ai:8000 (default remote server)
+  • api.arxa.ai (default remote server)
   • anthropic
   • openai
   • ollama

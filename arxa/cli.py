@@ -57,9 +57,9 @@ def main():
     parser.add_argument(
            "-p",
            "--provider",
-           default="arxa.richards.ai:8000",  # default provider uses the remote server
-           choices=["arxa.richards.ai:8000", "anthropic", "openai", "ollama", "deepseek", "fireworks"],
-           help="LLM provider to use (default: arxa.richards.ai:8000)"
+           default="api.arxa.ai",  # default provider uses the remote server
+           choices=["api.arxa.ai", "anthropic", "openai", "ollama", "deepseek", "fireworks"],
+           help="LLM provider to use (default: api.arxa.ai)"
        )
     parser.add_argument(
         "-m",
@@ -157,13 +157,13 @@ def main():
         logger.error("Failed to extract text from PDF: %s", str(e))
         sys.exit(1)
 
-    if args.provider.lower() == "arxa.richards.ai:8000":
+    if args.provider.lower() == "api.arxa.ai":
         try:
             import requests
         except ImportError:
             logger.error("The requests library is required for remote calls. Install it with pip install requests")
             sys.exit(1)
-        endpoint = "http://arxa.richards.ai:8000/generate-review"
+        endpoint = "https://api.arxa.ai/generate-review"
         payload = {
             "pdf_text": pdf_text,
             "paper_info": paper_info,

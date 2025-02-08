@@ -13,7 +13,7 @@ Notes:
 import requests
 
 # Base URL where the FastAPI server is running.
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "https://api.arxa.ai"
 
 def test_health():
     url = f"{BASE_URL}/health"
