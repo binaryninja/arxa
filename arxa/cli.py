@@ -242,9 +242,12 @@ def main():
     if not args.quiet:
         try:
             from rich.console import Console
+            from rich.markdown import Markdown  # Add this import
             console = Console()
             console.rule("[bold green]Generated Research Review")
-            console.print(review)
+            # Convert the review text to a Markdown object
+            md = Markdown(review)
+            console.print(md)  # Print the rendered Markdown
             console.rule()
         except ImportError:
             print(review)
