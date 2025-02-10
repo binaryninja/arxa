@@ -8,6 +8,7 @@ import tempfile
 import logging
 import subprocess
 import json
+import hashlib
 
 # Import rich’s logging handler for better log formatting.
 try:
@@ -163,14 +164,19 @@ def main():
         except ImportError:
             logger.error("The requests library is required for remote calls. Install it with pip install requests")
             sys.exit(1)
+        # Calculate the aid based on the pdf_text and paper_info.
+        key_data = pdf_text + json.dumps(paper_info, sort_keys=True)
+        aid = hashlib.sha256(key_data.encode("utf-8")).hexdigest()
+
         endpoint = "https://api.arxa.ai/generate-review"
         payload = {
             "pdf_text": pdf_text,
             "paper_info": paper_info,
-            "provider": args.provider,  # server will override to openai/o3-mini
-            "model": args.model
+            "provider": args.provider,  # The server will override provider/model to openai/o3-mini.
+            "model": args.model,
+            "aid": aid
         }
-        logger.info("Sending review generation request to remote server at %s", endpoint)
+        logger.info("Sending review generation request to remote server at %s with aid: %s", endpoint, aid)
         response = requests.post(endpoint, json=payload)
         try:
             response.raise_for_status()

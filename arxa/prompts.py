@@ -9,73 +9,29 @@ PROMPT_SUFFIX = """\
 {paper_info}
 </paper_info>
 ...
-Begin your response with <research_notes> and end with </research_notes>.
-
 Always extract the authors github url if they are releasing code.
 
 Use the following template:
 
-## 1. Paper Information
-- **Title:**
-- **Authors:**
-- **ArXiv Link:**
-- **Date of Submission:**
-- **Field of Study:**
-- **Keywords:**
-- **Code Repository:**
-
-## 2. Summary
-- **Problem Statement:**
-- **Main Contributions:**
-- **Key Findings:**
-- **Methodology Overview:**
-- **Conclusion:**
-
-## 3. Background & Related Work
-- **Prior Work Referenced:**
-- **How It Differs from Existing Research:**
-- **Gaps It Addresses:**
-
-## 4. Methodology
-- **Approach Taken:**
-- **Key Techniques Used:**
-- **Datasets / Benchmarks Used:**
-- **Implementation Details:**
-- **Reproducibility:** (Is there a code repository? Are experiments well-documented?)
-
-## 5. Experimental Evaluation
-- **Evaluation Metrics:**
-- **Results Summary:**
-- **Baseline Comparisons:**
-- **Ablation Studies:**
-- **Limitations Noted by Authors:**
-
-## 6. Strengths
-- **Novelty & Innovation:**
-- **Technical Soundness:**
-- **Clarity & Organization:**
-- **Impact & Potential Applications:**
-
-## 7. Weaknesses & Critiques
-- **Unaddressed Assumptions / Flaws:**
-- **Possible Biases or Limitations:**
-- **Reproducibility Concerns:**
-- **Presentation Issues:**
-
-## 8. Future Work & Open Questions
-- **Suggested Improvements by Authors:**
-- **Potential Extensions / Further Research Directions:**
-- **Open Problems in the Field:**
-
-## 9. Personal Review & Rating
-- **Overall Impression:** (1-5)
-- **Significance of Contributions:** (1-5)
-- **Clarity & Organization:** (1-5)
-- **Methodological Rigor:** (1-5)
-- **Reproducibility:** (1-5)
-
-## 10. Additional Notes
-- **Key Takeaways:**
-- **Interesting Insights:**
-- **Personal Thoughts & Comments:**
+Paper Information Section:
+Look for the title at the top of the paper, typically in large or bold font. Collect author names from the byline, typically listed below the title. The arXiv link will be in the paper's metadata or header. Find the submission date in the paper metadata or footer. The field of study is often mentioned in keywords, abstract, or introduction. Keywords are typically listed explicitly after the abstract. Look for code repository links in footnotes, acknowledgments, or implementation sections.
+Summary Section:
+The problem statement is typically found in the introduction, often within the first few paragraphs. Main contributions are usually explicitly stated in the introduction, often as bullet points or numbered lists. Key findings appear in the abstract and conclusion sections. The methodology overview is typically summarized in the abstract and detailed in the introduction. The conclusion is found in the final section of the paper.
+Background and Related Work Section:
+Prior work is typically discussed in a dedicated "Related Work" or "Background" section. Look for explicit comparisons or statements about how the current work differs from previous approaches. Gaps addressed are usually stated in the introduction or related work section, often prefaced with phrases like "however" or "nevertheless."
+Methodology Section:
+The approach is detailed in the methods or methodology section. Key techniques are described in the methodology section, often with mathematical notations or algorithms. Dataset information is typically in a dedicated "Experiments" or "Evaluation" section. Implementation details are found in the methodology or experiments section. Reproducibility information is often in implementation details or supplementary materials.
+Experimental Evaluation Section:
+Evaluation metrics are defined in the experiments section. Results summary appears in results/evaluation section, often with tables and figures. Baseline comparisons are in the results section, usually in tables. Ablation studies have their own subsection in results. Limitations are typically discussed near the end of results or in discussion.
+Strengths Section:
+Look for novel contributions highlighted in introduction and conclusion. Technical soundness is assessed through methodology and evaluation sections. Clarity is evaluated through overall paper structure. Impact and applications are typically discussed in introduction and conclusion.
+Weaknesses and Critiques Section:
+Look for assumptions stated in methodology section. Limitations are typically acknowledged in discussion or limitations section. Reproducibility concerns can be assessed from methodology and implementation details. Presentation issues relate to overall paper organization and clarity.
+Future Work Section:
+Future work is typically discussed in conclusion or in a dedicated section. Look for phrases like "in future work" or "could be extended." Open problems are often mentioned in discussion or conclusion.
+Personal Review Section:
+This requires synthesizing information from the entire paper to assess overall quality, significance, clarity, methodology, and reproducibility.
+Additional Notes Section:
+Key takeaways are main points emphasized throughout the paper. Interesting insights might be novel findings or unexpected results. Personal thoughts should be based on critical analysis of the paper's strengths and weaknesses.
+Focus on these key phrases and sections to extract relevant information efficiently. Pay special attention to the abstract, introduction, and conclusion as they often contain condensed versions of key information.
 """
